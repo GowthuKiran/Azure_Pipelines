@@ -45,8 +45,18 @@ steps:
   inputs:
     cwd: '$(System.DefaultWorkingDirectory)'
 
-- task: PublishBuildArtifacts@1
+- task: JFrogGenericArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
+    command: 'Upload'
+    connection: 'jfartifact'
+    specSource: 'taskConfiguration'
+    fileSpec: |
+      {
+        "files": [
+          {
+            "pattern": "*.zip",
+            "target": "iopt-nuget"
+          }
+        ]
+      }
+    failNoOp: true
