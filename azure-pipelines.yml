@@ -43,5 +43,7 @@ steps:
           }
         ]
       }
+    collectBuildInfo: true
+    buildName: '$(Build.DefinitionName)'
+    buildNumber: '$(Build.BuildNumber)'
     failNoOp: true
-
