@@ -32,14 +32,14 @@ steps:
 - task: JFrogGenericArtifacts@1
   inputs:
     command: 'Upload'
-    connection: 'jfrog-service'
+    connection: 'jfrognew'
     specSource: 'taskConfiguration'
     fileSpec: |
       {
         "files": [
           {
-            "pattern": "*.zip",
-            "target": "plog"
+            "pattern": "$(Pipeline.Workspace)/*.zip",
+            "target": "demo-generic-local"
           }
         ]
       }
