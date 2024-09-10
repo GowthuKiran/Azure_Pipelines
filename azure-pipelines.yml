@@ -39,7 +39,7 @@ steps:
         "files": [
           {
             "pattern": "$(Pipeline.Workspace)/*.zip",
-            "target": "demo-generic-local"
+            "target": "demo-plog"
           }
         ]
       }
