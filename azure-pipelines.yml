@@ -14,37 +14,42 @@ variables:
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
 
-steps:
-- task: NuGetToolInstaller@1
-
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
-
-
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
-
-- task: JFrogGenericArtifacts@1
-  inputs:
-    command: 'Upload'
-    connection: 'jfrognew'
-    specSource: 'taskConfiguration'
-    fileSpec: |
-      {
-        "files": [
+stages:
+- stage: toolsconfigure
+  jobs:
+  - job: nuget_tool
+    steps:
+    - task: NuGetToolInstaller@1
+    - task: NuGetCommand@2
+      inputs:
+        restoreSolution: '$(solution)'
+  - job: build
+    steps:
+    - task: VSBuild@1
+      inputs:
+        solution: '$(solution)'
+        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
+        platform: '$(buildPlatform)'
+        configuration: '$(buildConfiguration)'
+  
+  - job: jfrogArtifact
+    steps:
+    - task: JFrogGenericArtifacts@1
+      inputs:
+        command: 'Upload'
+        connection: 'jfrognew'
+        specSource: 'taskConfiguration'
+        fileSpec: |
           {
-            "pattern": "$(Pipeline.Workspace)/*.zip",
-            "target": "demo-plog"
+            "files": [
+              {
+                "pattern": "$(Pipeline.Workspace)/*.zip",
+                "target": "demo-plog"
+              }
+            ]
           }
-        ]
-      }
-    collectBuildInfo: true
-    buildName: '$(Build.DefinitionName)'
-    buildNumber: '$(Build.BuildNumber)'
-    projectKey: 'demo'
-    failNoOp: true
+        collectBuildInfo: true
+        buildName: '$(Build.DefinitionName)'
+        buildNumber: '$(Build.BuildNumber)'
+        projectKey: 'demo'
+        failNoOp: true
