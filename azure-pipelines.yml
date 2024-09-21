@@ -23,6 +23,7 @@ stages:
     - task: NuGetCommand@2
       inputs:
         restoreSolution: '$(solution)'
+
 - stage: build
   jobs:
   - job: build
@@ -33,6 +34,7 @@ stages:
         msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
         platform: '$(buildPlatform)'
         configuration: '$(buildConfiguration)'
+
 - stage: artifact
   jobs:
   - job: jfrogArtifact
