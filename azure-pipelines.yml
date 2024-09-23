@@ -21,6 +21,12 @@ steps:
   inputs:
     restoreSolution: '$(solution)'
 
+- task: SonarCloudPrepare@2
+  inputs:
+    SonarCloud: 'Sonar-Azure'
+    organization: 'codeanalysis-sonar'
+    scannerMode: 'MSBuild'
+    projectKey: 'devopskiran21050495_Docker_Kubernetes'
 
 - task: VSBuild@1
   inputs:
@@ -48,3 +54,13 @@ steps:
     buildNumber: '$(Build.BuildNumber)'
     projectKey: 'demo'
     failNoOp: true
+- task: SonarCloudAnalyze@2
+  inputs:
+    jdkversion: 'JAVA_HOME_17_X64'
+- task: SonarCloudPublish@2
+  inputs:
+    pollingTimeoutSec: '300'
+
+- task: WhiteSource@21
+  inputs:
+    cwd: '$(System.DefaultWorkingDirectory)'
