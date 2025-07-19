@@ -1,0 +1,136 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  buildConfig: 'Release'
+  dotnetVersion: '7.0.x'
+  nodeVersion: '18.x'
+  backendPath: 'src/api'
+  frontendPath: 'src/web'
+  artifactName: 'appdrop'
+
+stages:
+
+# === INFRA SETUP ===
+- stage: Terraform_Provision
+  jobs:
+    - job: Terraform
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: 'latest'
+
+        - script: |
+            cd src/infra
+            terraform init
+            terraform apply -auto-approve
+          displayName: 'Terraform Apply'
+
+# === BUILD STAGE ===
+- stage: Build
+  jobs:
+    - job: Backend
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - task: UseDotNet@2
+          inputs:
+            version: $(dotnetVersion)
+
+        - script: |
+            cd $(backendPath)
+            dotnet restore
+            dotnet build --configuration $(buildConfig)
+          displayName: 'Build .NET Backend'
+
+    - job: Frontend
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: NodeTool@0
+          inputs:
+            versionSpec: $(nodeVersion)
+
+        - script: |
+            cd $(frontendPath)
+            npm install
+            npm run build
+          displayName: 'Build React Frontend'
+
+# === PARALLEL TESTING ===
+- stage: Test
+  dependsOn: Build
+  strategy:
+    matrix:
+      Unit:
+        testPath: 'tests/unit'
+      Integration:
+        testPath: 'tests/integration'
+  jobs:
+    - job: MatrixTest
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - script: |
+            echo "Running tests from: $(testPath)"
+            python3 -m unittest discover $(testPath)
+          displayName: 'Run Python Tests'
+
+# === PUBLISH ARTIFACTS ===
+- stage: PublishArtifacts
+  dependsOn: Build
+  jobs:
+    - job: Publish
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - task: CopyFiles@2
+          inputs:
+            contents: '**/bin/$(buildConfig)/**'
+            targetFolder: '$(Build.ArtifactStagingDirectory)/drop'
+
+        - task: PublishBuildArtifacts@1
+          inputs:
+            pathToPublish: '$(Build.ArtifactStagingDirectory)/drop'
+            artifactName: $(artifactName)
+
+        - task: jfrogArtifactoryUpload@2
+          inputs:
+            artifactoryService: 'jfrog-conn'
+            specSource: 'file'
+            fileSpecPath: 'src/jfrog/upload-spec.json'
+
+# === DEPLOY TO AZURE ===
+- stage: Deploy
+  dependsOn: PublishArtifacts
+  jobs:
+    - deployment: DeployApp
+      environment: 'production'
+      pool:
+        name: 'SelfHostedPool'   # your on-prem/self-hosted agent
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: AzureKeyVault@2
+                inputs:
+                  azureSubscription: 'MyAzureSub'
+                  KeyVaultName: 'MyKeyVault'
+                  SecretsFilter: 'app-secret,db-password'
+
+              - script: |
+                  echo "Deploying backend using Ansible"
+                  cd src/ansible
+                  ansible-playbook deploy_backend.yml
+                displayName: 'Run Ansible Playbook'
+
+              - task: AzureWebApp@1
+                inputs:
+                  azureSubscription: 'MyAzureSub'
+                  appType: 'webApp'
+                  appName: 'my-react-dotnet-app'
+                  package: '$(Pipeline.Workspace)/$(artifactName)/**/*.zip'
